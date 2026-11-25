@@ -5,7 +5,7 @@ base <- dirname(dirname(normalizePath(sub("^--file=", "", args[1L]), mustWork = 
 tmp <- tempfile("report_pipeline_")
 dir.create(tmp)
 on.exit(unlink(tmp, recursive = TRUE))
-for (d in c("bam", "vep", "refs", "out", "vcf_input", "ab", "prefixed", "single", "igv_failed", "indel", "failed", "failed_plot", "sai", "sai_missing", "sai_failed")) dir.create(file.path(tmp, d))
+for (d in c("bam", "vep", "refs", "out", "vcf_input", "ab", "prefixed", "single", "igv_failed", "igv_empty", "igv_dynamic", "indel", "failed", "failed_plot", "sai", "sai_missing", "sai_failed")) dir.create(file.path(tmp, d))
 for (id in c("1", "2")) {
     file.create(file.path(tmp, "bam", paste0(id, ".bam")))
     file.create(file.path(tmp, "bam", paste0(id, ".bam.bai")))
@@ -34,7 +34,7 @@ writeLines(c('chr17\ttest\texon\t101\t150\t.\t+\t.\tgene_id "GENE"; transcript_i
 
 run_one <- function(var, gt, output, fail_coverage = FALSE, fail_sashimi = FALSE, enable_sai = FALSE,
                     missing_sai = FALSE, fail_sai = FALSE, sample_ids = "1,2", fail_igv = FALSE,
-                    reserved = FALSE) {
+                    reserved = FALSE, nt_junction_reads = 10L) {
     env <- new.env(parent = globalenv())
     sai_calls <- 0L
     env$source <- function(file, ...) base::source(file, local = env)
@@ -115,7 +115,8 @@ run_one <- function(var, gt, output, fail_coverage = FALSE, fail_sashimi = FALSE
             writeLines("chr17\t100\t110\t-2", args[5L])
             writeLines(character(), stdout)
         } else if (command == "regtools") {
-            writeLines("chr17\t140\t210\tJ1\t10\t+\t140\t210\t0\t2\t10,10\t0,60", stdout)
+            count <- if (grepl("1_nt.GENE.bam", tail(args, 1L), fixed = TRUE)) nt_junction_reads else 10L
+            writeLines(if (count > 0) paste("chr17", 140, 210, "J1", count, "+", 140, 210, 0, 2, "10,10", "0,60", sep = "\t") else character(), stdout)
         } else if (command == "gatk" && args[1L] == "ASEReadCounter") {
             out <- args[which(args == "-O") + 1L]
             writeLines(c("contig,position,refAllele,altAllele,refCount,altCount", "chr17,150,A,G,12,8"), out)
@@ -170,7 +171,19 @@ stopifnot(identical(single_samples$condition, c("treatment_unknown", "control_un
           grepl("no nt/puro comparison", single_status, fixed = TRUE),
           "single (treatment unknown) BAM" %in% single_names,
           !any(grepl("[+-]puro", single_names)))
+single_options <- xml2::xml_find_all(single_xml, ".//Track[@clazz='org.broad.igv.sam.AlignmentTrack']/RenderOptions")
+stopifnot(length(single_options) == 4L, all(xml2::xml_attr(single_options, "minJunctionCoverage") == "3"),
+          grepl("single_treatment_unknown", readLines(file.path(single, "IGV", "junction_threshold.txt")), fixed = TRUE))
 project <- run_one("17-150-A-G", "het", file.path(tmp, "out"))
+dynamic <- run_one("17-150-A-G", "het", file.path(tmp, "igv_dynamic"), nt_junction_reads = 1500L)
+dynamic_xml <- xml2::read_xml(file.path(dynamic, "IGV", "paired_IGV.xml"))
+dynamic_options <- xml2::xml_find_all(dynamic_xml, ".//Track[@clazz='org.broad.igv.sam.AlignmentTrack']/RenderOptions")
+stopifnot(length(dynamic_options) == 6L, all(xml2::xml_attr(dynamic_options, "minJunctionCoverage") == "15"))
+empty <- run_one("17-150-A-G", "het", file.path(tmp, "igv_empty"), nt_junction_reads = 0L)
+empty_xml <- xml2::read_xml(file.path(empty, "IGV", "paired_IGV.xml"))
+empty_options <- xml2::xml_find_all(empty_xml, ".//Track[@clazz='org.broad.igv.sam.AlignmentTrack']/RenderOptions")
+stopifnot(length(empty_options) == 6L, all(is.na(xml2::xml_attr(empty_options, "minJunctionCoverage"))),
+          grepl("IGV default", readLines(file.path(empty, "IGV", "junction_threshold.txt")), fixed = TRUE))
 igv_failed <- run_one("17-150-A-G", "het", file.path(tmp, "igv_failed"), fail_igv = TRUE)
 stopifnot(grepl("IGV snapshot: failed simulated IGV failure",
                 paste(readLines(file.path(igv_failed, "STATUS.txt")), collapse = ""), fixed = TRUE),
@@ -201,7 +214,14 @@ xml <- xml2::read_xml(file.path(project, "IGV", "paired_IGV.xml"))
 tracks <- xml2::xml_find_all(xml, ".//Track")
 names <- xml2::xml_attr(tracks, "name")
 alignments <- tracks[xml2::xml_attr(tracks, "clazz") == "org.broad.igv.sam.AlignmentTrack"]
-stopifnot(length(alignments) == 6L, all(xml2::xml_attr(alignments, "visible") == "false"))
+stopifnot(length(alignments) == 6L, all(xml2::xml_attr(alignments, "visible") == "false"),
+          all(xml2::xml_attr(xml2::xml_find_all(alignments, "./RenderOptions"), "minJunctionCoverage") == "3"))
+warehouse_xml <- xml2::read_xml(file.path(project, "IGV", "paired_IGV_vswarehouse.xml"))
+warehouse_options <- xml2::xml_find_all(warehouse_xml, ".//Track[@clazz='org.broad.igv.sam.AlignmentTrack']/RenderOptions")
+stopifnot(length(warehouse_options) == 6L,
+          all(xml2::xml_attr(warehouse_options, "minJunctionCoverage") == "3"),
+          grepl("3 reads", readLines(file.path(project, "IGV", "junction_threshold.txt")), fixed = TRUE),
+          grepl("1_nt", readLines(file.path(project, "IGV", "junction_threshold.txt")), fixed = TRUE))
 other_tracks <- tracks[xml2::xml_attr(tracks, "clazz") %in%
     c("org.broad.igv.sam.CoverageTrack", "org.broad.igv.sam.SpliceJunctionTrack")]
 stopifnot(length(other_tracks) == 12L, all(is.na(xml2::xml_attr(other_tracks, "visible"))))

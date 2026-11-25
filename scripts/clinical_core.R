@@ -1,6 +1,14 @@
 # Fælles inputkontrol og hjælpefunktioner til ClinV1.
 stop_input <- function(...) stop(..., call. = FALSE)
 
+igv_junction_minimum <- function(counts) {
+    if (!is.numeric(counts) || anyNA(counts) || any(!is.finite(counts)) || any(counts < 0))
+        stop_input("Invalid junction counts for IGV threshold.")
+    counts <- counts[counts > 0]
+    if (!length(counts)) return(NA_integer_)
+    as.integer(min(20, max(3, ceiling(stats::median(counts) * 0.01))))
+}
+
 write_vswarehouse_igv_session <- function(input, output) {
     session <- xml2::read_xml(input)
     if (xml2::xml_name(xml2::xml_root(session)) != "Session")

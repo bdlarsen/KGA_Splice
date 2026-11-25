@@ -62,6 +62,22 @@ tracks indlæses; oprettelsen af XML-filen kan ikke kontrollere adgang i det
 andet miljø. Til eventuelt IGV-snapshot bruger analysen fortsat den normale
 session.
 
+For nye kørsler sættes samme IGV *Junction Coverage Min* på alle patient-
+og kontrolspor, både regions- og original-BAM. Tærsklen er 1 % af medianen
+af de positive regtools-junctiontællinger i den udtrukne region (genet
++/- 10 kb) for første patientprøve (-puro), afrundet op og begrænset til
+3–20 reads. Ved enkeltprøver med ukendt
+behandling bruges denne prøve. Hvis den ikke har positive junctions,
+bruges IGV's egen standard, og pipelinen giver en advarsel. Den valgte
+tærskel eller manglende beregningsgrundlag dokumenteres i
+`IGV/junction_threshold.txt`.
+
+Dette er et eksplorativt visningsfilter, ikke en valideret analysegrænse.
+Det ændrer ikke junctiontabellen; svagt understøttede junctions kan skjules.
+Sænk grænsen manuelt i IGV, f.eks. til 1, når relevante svage junctions
+undersøges. Regtools- og IGV-tællinger kan afvige. Konvertering af en
+eksisterende session til VSwarehouse ændrer ikke dens tærskel.
+
 Kør `Rscript scripts/ClinV1.R --help` (eller uden argumenter) for en kort
 oversigt. `-variant` kan være den eksisterende `CHR-POS-REF-ALT`-værdi
 eller stien til en `.vcf`-/`.vcf.gz`-fil med præcis én biallelisk variant.

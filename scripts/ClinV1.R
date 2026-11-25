@@ -234,6 +234,16 @@ samples <- data.frame(label = labels, condition = c(if (single_sample) "treatmen
 write.table(samples, file.path(project, "samples.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
 
 # IGV: regionsspor først og originale input-BAM'er nederst.
+igv_junction_min <- igv_junction_minimum(comparison[[patient_labels[1L]]])
+igv_junction_note <- if (is.na(igv_junction_min)) {
+    paste0("IGV junction minimum: IGV default (no positive junction counts for ",
+           patient_labels[1L], ").")
+} else {
+    paste0("IGV junction minimum: ", igv_junction_min, " reads; based on positive regtools junction counts for ",
+           patient_labels[1L], " (1% of median, rounded up, range 3-20).")
+}
+writeLines(igv_junction_note, file.path(project, "IGV", "junction_threshold.txt"))
+if (is.na(igv_junction_min)) warning(igv_junction_note, call. = FALSE)
 session <- xml2::xml_new_root("Session", genome = "hg38", locus = paste0(chrom, ":", max(1, variant$pos - 1000), "-", variant$pos + 1000), version = "8")
 resources <- xml2::xml_add_child(session, "Resources")
 coverage_paths <- c(coverage_plus, coverage_minus)
@@ -259,7 +269,8 @@ for (i in seq_along(clipped)) {
     read_track <- xml2::xml_add_child(panel, "Track", clazz = "org.broad.igv.sam.AlignmentTrack", id = clipped[i],
                                      name = paste(track_names[i], "BAM"), color = track_colors[i],
                                      altColor = track_colors[i], experimentType = "RNA", visible = "false")
-    xml2::xml_add_child(read_track, "RenderOptions")
+    render_options <- xml2::xml_add_child(read_track, "RenderOptions")
+    if (!is.na(igv_junction_min)) xml2::xml_set_attr(render_options, "minJunctionCoverage", as.character(igv_junction_min))
 }
 for (i in seq_along(bams)) {
     xml2::xml_add_child(panel, "Track", clazz = "org.broad.igv.sam.CoverageTrack", id = paste0(bams[i], "_coverage"), name = paste(track_names[i], "raw coverage"), color = track_colors[i])
@@ -267,7 +278,8 @@ for (i in seq_along(bams)) {
     read_track <- xml2::xml_add_child(panel, "Track", clazz = "org.broad.igv.sam.AlignmentTrack", id = bams[i],
                                      name = paste(track_names[i], "raw BAM"), color = track_colors[i],
                                      altColor = track_colors[i], experimentType = "RNA", visible = "false")
-    xml2::xml_add_child(read_track, "RenderOptions")
+    render_options <- xml2::xml_add_child(read_track, "RenderOptions")
+    if (!is.na(igv_junction_min)) xml2::xml_set_attr(render_options, "minJunctionCoverage", as.character(igv_junction_min))
 }
 xml2::write_xml(session, file.path(project, "IGV", "paired_IGV.xml"))
 write_vswarehouse_igv_session(file.path(project, "IGV", "paired_IGV.xml"),
