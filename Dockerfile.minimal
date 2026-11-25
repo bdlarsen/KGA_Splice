@@ -1,0 +1,33 @@
+FROM continuumio/miniconda3:latest
+
+RUN conda install -y -n base -c conda-forge mamba && \
+    /opt/conda/bin/python -c 'import glob, json, sys; packages = [json.load(open(p, encoding="utf-8")) for p in glob.glob("/opt/conda/conda-meta/*.json")]; target = "conda-anaconda-telemetry"; dependents = [p["name"] for p in packages if any(d.split()[0] == target for d in p.get("depends", []))]; sys.exit("Cannot remove telemetry: missing package or dependencies: " + repr(dependents)) if not any(p["name"] == target for p in packages) or dependents else print("No installed base package depends on", target)' && \
+    conda remove -n base --offline --force-remove -y conda-anaconda-telemetry && \
+    mamba create -y -n KGA_Splice --override-channels -c conda-forge -c bioconda \
+        python=3.10 pip r-base r-xml2 samtools sambamba bedtools \
+        gatk4 regtools=1.0.0 pysam matplotlib && \
+    conda run --no-capture-output -n KGA_Splice python -m pip install sashimi.py && \
+    mamba create -y -n vep_env --override-channels -c conda-forge -c bioconda \
+        ensembl-vep=115 perl-compress-raw-zlib=2.214 perl-io-compress=2.214 && \
+    mamba create -y -n spliceai_env --override-channels -c conda-forge -c bioconda \
+        spliceai numpy=1.23 tensorflow=2.11 'setuptools<70' && \
+    conda clean -afy
+
+ENV PATH="/opt/conda/envs/KGA_Splice/bin:/opt/conda/bin:${PATH}" \
+    MPLBACKEND=Agg \
+    VEP_ASSEMBLY=GRCh38
+
+WORKDIR /opt/clinv1
+COPY scripts/ /opt/clinv1/scripts/
+COPY tests/ /opt/clinv1/tests/
+
+RUN find /opt/clinv1/scripts /opt/clinv1/tests -type f -name '*.sh' \
+        -exec sed -i 's/\r$//' {} + && \
+    command -v Rscript && command -v samtools && command -v sambamba && \
+    command -v bedtools && command -v gatk && command -v regtools && \
+    Rscript -e 'stopifnot(requireNamespace("xml2", quietly=TRUE))' && \
+    conda run --no-capture-output -n KGA_Splice sashimipy --help > /dev/null && \
+    conda run --no-capture-output -n vep_env vep --help > /dev/null && \
+    conda run --no-capture-output -n spliceai_env spliceai -h > /dev/null
+
+CMD ["bash", "--noprofile", "--norc"]

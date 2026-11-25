@@ -1,0 +1,12 @@
+services:
+  clinv1:
+    image: kga-splice:clinv1-minimal-candidate
+    build:
+      context: .
+      dockerfile: Dockerfile.minimal
+    network_mode: none
+    hostname: clinv1-local
+    extra_hosts:
+      - "clinv1-local:127.0.0.1"
+    stdin_open: true
+    tty: true

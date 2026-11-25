@@ -1,0 +1,11 @@
+**
+!Dockerfile
+!Dockerfile.minimal
+!scripts
+!scripts/*.R
+!scripts/*.sh
+!scripts/*.py
+!tests
+!tests/*.R
+!tests/*.sh
+!tests/*.py

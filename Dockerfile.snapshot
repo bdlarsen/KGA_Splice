@@ -1,0 +1,15 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+# Keep the existing KGA_Splice tools first, then expose the saved regtools.
+ENV PATH="/opt/conda/envs/KGA_Splice/bin:/opt/conda/envs/clinv1_regtools/bin:${PATH}"
+
+RUN command -v Rscript && command -v samtools && command -v sambamba && \
+    command -v bedtools && command -v gatk && command -v regtools && \
+    conda run --no-capture-output -n clinv1_regtools regtools --version && \
+    conda run --no-capture-output -n salmon_env salmon --version && \
+    conda run --no-capture-output -n vep_env vep --help > /dev/null && \
+    conda run --no-capture-output -n spliceai_env spliceai -h > /dev/null && \
+    conda run --no-capture-output -n KGA_Splice sashimipy --help > /dev/null && \
+    conda run --no-capture-output -n KGA_Splice Rscript -e \
+      'pkgs <- c("xml2", "IsoformSwitchAnalyzeR", "tidyverse", "rtracklayer", "BSgenome.Hsapiens.UCSC.hg38"); missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)]; if (length(missing)) stop(paste("Missing:", paste(missing, collapse=", ")))'
