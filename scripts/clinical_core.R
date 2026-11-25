@@ -1,6 +1,30 @@
 # Fælles inputkontrol og hjælpefunktioner til ClinV1.
 stop_input <- function(...) stop(..., call. = FALSE)
 
+write_vswarehouse_igv_session <- function(input, output) {
+    session <- xml2::read_xml(input)
+    if (xml2::xml_name(xml2::xml_root(session)) != "Session")
+        stop_input("IGV session must have a Session root: ", input)
+    resources <- xml2::xml_find_all(session, ".//Resource[@path]")
+    if (!length(resources)) stop_input("IGV session has no resource paths: ", input)
+    paths <- xml2::xml_attr(resources, "path")
+    mapped <- paths == "/drift" | startsWith(paths, "/drift/")
+    if (any(!mapped)) warning(
+        "VSwarehouse IGV session: resource paths outside /drift were not translated; ",
+        "verify access in VSwarehouse: ", paste(unique(paths[!mapped]), collapse = ", "),
+        call. = FALSE)
+    translate <- function(value) {
+        mapped <- value == "/drift" | startsWith(value, "/drift/")
+        value[mapped] <- paste0("/home/ghuser/Workspace", value[mapped])
+        value
+    }
+    xml2::xml_set_attr(resources, "path", translate(paths))
+    tracks <- xml2::xml_find_all(session, ".//Track[@id]")
+    xml2::xml_set_attr(tracks, "id", translate(xml2::xml_attr(tracks, "id")))
+    xml2::write_xml(session, output)
+    invisible(output)
+}
+
 clinv1_help <- function() {
     paste(c(
         "ClinV1: one variant and one sample or nt/puro sample pair",

@@ -143,6 +143,7 @@ dir.create(file.path(reserved_project, "tmp"))
 reserved_result <- run_one("17-150-A-G", "het", reserved_project, reserved = TRUE)
 stopifnot(file.exists(file.path(reserved_result, "STATUS.txt")),
           file.exists(file.path(reserved_result, "IGV", "paired_IGV.xml")),
+          file.exists(file.path(reserved_result, "IGV", "paired_IGV_vswarehouse.xml")),
           dir.exists(file.path(reserved_result, "tmp")),
           !dir.exists(file.path(reserved_result, "GENE_1_nt_2_puro")))
 ab <- run_one("17-150-A-G", "het", file.path(tmp, "ab"), sample_ids = "040966-2498-B,040966-2498-A")
@@ -161,6 +162,7 @@ single_samples <- read.delim(file.path(single, "samples.tsv"), stringsAsFactors 
 single_report <- paste(readLines(file.path(single, "Report", "index.html"), warn = FALSE), collapse = "")
 single_status <- paste(readLines(file.path(single, "STATUS.txt")), collapse = "")
 single_xml <- xml2::read_xml(file.path(single, "IGV", "paired_IGV.xml"))
+stopifnot(file.exists(file.path(single, "IGV", "paired_IGV_vswarehouse.xml")))
 single_names <- xml2::xml_attr(xml2::xml_find_all(single_xml, ".//Track"), "name")
 stopifnot(identical(single_samples$condition, c("treatment_unknown", "control_unspecified")),
           basename(single_samples$input_bam[1]) == "G150-single_illumina.bam",

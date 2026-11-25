@@ -270,6 +270,8 @@ for (i in seq_along(bams)) {
     xml2::xml_add_child(read_track, "RenderOptions")
 }
 xml2::write_xml(session, file.path(project, "IGV", "paired_IGV.xml"))
+write_vswarehouse_igv_session(file.path(project, "IGV", "paired_IGV.xml"),
+                              file.path(project, "IGV", "paired_IGV_vswarehouse.xml"))
 snapshot_locus <- paste0(chrom, ":", max(1, variant$pos - 1000), "-", min(chrom_length, variant$pos + 1000))
 igv_snapshot <- render_igv_snapshot(opt[["-igv-snapshot"]], file.path(project, "IGV", "paired_IGV.xml"),
                                     opt[["-g"]], project, snapshot_locus)

@@ -25,6 +25,43 @@ Tidligere resultater overskrives ikke. Containeren kører uden netværk,
 input mountes read-only og stierne er de samme på vært og i IGV-session.
 Kontrollér plads på `/` og `/drift`: ikke alle containerfiler ligger i `tmp`.
 
+### IGV på værten og i VSwarehouse
+
+Hver ny kørsel opretter to sessioner i projektets `IGV`-mappe:
+
+* `paired_IGV.xml` til IGV, der ser filer under værtens `/drift`.
+* `paired_IGV_vswarehouse.xml` til IGV i VSwarehouse, der ser samme drev
+  under `/home/ghuser/Workspace/drift`.
+
+Den anden session oversætter ressource- og trackstier fra `/drift/...` til
+`/home/ghuser/Workspace/drift/...`. Den ændrer ikke selve BAM-filerne.
+Kontrollér i VSwarehouse, at både BAM, BAM-indeks og projektets output kan
+læses på de oversatte stier. Et eksisterende indeks på analyseværten er ikke
+tilstrækkeligt, hvis VSwarehouse ikke kan se det. Stier uden for `/drift`
+oversættes ikke: pipelinen giver en advarsel, og disse tracks kan kræve en
+anden mount eller manuel tilpasning. IGV skal også have adgang til hg38.
+
+En tidligere kørsel kan få en VSwarehouse-session uden at genkøre analysen.
+På Docker-værten angives først den eksisterende projektmappe; kommandoen
+overskriver ikke en eksisterende VSwarehouse-fil:
+
+```bash
+PROJECT=/drift/RNA/drift/UDSKIFT_MED_PROJEKTMAPPE
+SCRIPTS=/drift/RNA/TotalRNA_Splice/Pipeline/ClinV1/scripts
+
+docker run --rm --network none \
+  --mount "type=bind,src=$PROJECT,dst=/project" \
+  --mount "type=bind,src=$SCRIPTS,dst=/clinv1-scripts,readonly" \
+  kga-splice:clinv1-minimal-candidate \
+  Rscript /clinv1-scripts/make_vswarehouse_session.R \
+  /project/IGV/paired_IGV.xml /project/IGV/paired_IGV_vswarehouse.xml
+```
+
+Åbn derefter `paired_IGV_vswarehouse.xml` i VSwarehouse. Verificér at alle
+tracks indlæses; oprettelsen af XML-filen kan ikke kontrollere adgang i det
+andet miljø. Til eventuelt IGV-snapshot bruger analysen fortsat den normale
+session.
+
 Kør `Rscript scripts/ClinV1.R --help` (eller uden argumenter) for en kort
 oversigt. `-variant` kan være den eksisterende `CHR-POS-REF-ALT`-værdi
 eller stien til en `.vcf`-/`.vcf.gz`-fil med præcis én biallelisk variant.

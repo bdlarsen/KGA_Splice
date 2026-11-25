@@ -148,6 +148,7 @@ if docker run --rm --network none \
   echo "Koersel afsluttet: $run_dir"
   echo "Gennemgaa STATUS.txt og logs foer fortolkning."
   echo "IGV: $run_dir/IGV/paired_IGV.xml"
+  echo "IGV VSwarehouse: $run_dir/IGV/paired_IGV_vswarehouse.xml"
 else
   status=$?
   echo "FEJL: Docker/analysen afsluttede med kode $status. Delvis output er bevaret: $run_dir" >&2

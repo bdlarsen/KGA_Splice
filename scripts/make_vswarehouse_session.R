@@ -1,0 +1,12 @@
+#!/usr/bin/env Rscript
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) != 2L) stop("Usage: Rscript make_vswarehouse_session.R INPUT_XML OUTPUT_XML", call. = FALSE)
+if (!requireNamespace("xml2", quietly = TRUE)) stop("R package xml2 is required.", call. = FALSE)
+if (!file.exists(args[1L]) || dir.exists(args[1L])) stop("Input session not found: ", args[1L], call. = FALSE)
+if (file.exists(args[2L])) stop("Output already exists; choose a new path: ", args[2L], call. = FALSE)
+script_arg <- grep("^--file=", commandArgs(), value = TRUE)
+if (length(script_arg) != 1L) stop("Run with Rscript make_vswarehouse_session.R.", call. = FALSE)
+script_dir <- dirname(normalizePath(sub("^--file=", "", script_arg), mustWork = TRUE))
+source(file.path(script_dir, "clinical_core.R"))
+write_vswarehouse_igv_session(args[1L], args[2L])
+cat("VSwarehouse IGV session written:", args[2L], "\n")
