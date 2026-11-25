@@ -191,6 +191,90 @@ URL, fil eller chat. En credential helper kan gemme det: kontrollér lokal
 politik og værtsopsætning, særligt på en delt maskine. Alternativt kan
 godkendt SSH eller en godkendt credential manager anvendes.
 
+### Alternativ: SSH med en deploy key
+
+En deploy key er knyttet til ét GitHub-repository. Med skriveadgang kan
+den bruges til push uden et GitHub-token. En nøgle med passphrase kan
+stadig kræve indtastning; en SSH-agent kan huske den i en session, hvis
+det er tilladt efter lokale regler.
+
+På en delt server skal brug af nøglen godkendes efter lokale regler.
+Nøglen ligger i den aktuelle brugers hjemmemappe; bruges `root`, kan andre
+med root-adgang potentielt også bruge den. Deploy keys har ikke en
+automatisk udløbsdato som et tidsbegrænset token, så fjern adgangen på
+GitHub, når den ikke længere er nødvendig.
+
+**1. Opret nøglen på hosten**
+
+```bash
+ssh-keygen -t ed25519 -f "$HOME/.ssh/id_ed25519_clinv1" \
+  -C "ClinV1 backup"
+```
+
+Hvis nøglen allerede findes, må den ikke overskrives. Brug den eksisterende
+nøgle efter kontrol, eller vælg et andet filnavn og tilpas de efterfølgende
+kommandoer. Vælg en passphrase, når du bliver spurgt.
+
+**2. Tilføj den offentlige nøgle på GitHub**
+
+```bash
+cat "$HOME/.ssh/id_ed25519_clinv1.pub"
+```
+
+Kopiér hele linjen, der starter med `ssh-ed25519`, inklusive eventuel
+kommentar til sidst. På GitHub vælges **KGA_Splice → Settings → Deploy
+keys → Add deploy key**. Indsæt linjen i **Key**, angiv et navn, og vælg
+**Allow write access**, før nøglen tilføjes. Uden skriveadgang kan den
+ikke bruges til push.
+
+Filen uden `.pub` er den private nøgle: den må aldrig uploades eller
+deles. En offentlig nøgle skal være én linje i OpenSSH-format; kopier
+hverken terminalprompten eller et linjeskift midt i nøglen.
+
+**3. Test forbindelsen**
+
+```bash
+ssh -i "$HOME/.ssh/id_ed25519_clinv1" \
+  -o IdentitiesOnly=yes -T git@github.com
+```
+
+Første gang kan SSH bede om godkendelse af GitHubs værtsnøgle. Kontrollér
+fingeraftrykket mod [GitHubs officielle SSH-fingeraftryk](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)
+før accept. En vellykket test bekræfter autentificering og siger, at GitHub
+ikke giver shell-adgang; kommandoen afsluttes alligevel normalt med kode 1.
+Ved anden fejl: stop og undersøg den, før du ændrer repositoryets remote.
+
+**4. Brug SSH til dette repository**
+
+Efter vellykket test kontrolleres først den eksisterende remote og eventuel
+SSH-konfiguration:
+
+```bash
+cd /drift/RNA/TotalRNA_Splice/Pipeline/ClinV1
+SAFE="$(pwd -P)"
+git -c safe.directory="$SAFE" remote -v
+git -c safe.directory="$SAFE" config --local --get core.sshCommand
+```
+
+Hvis `origin` er den tilsigtede GitHub-backup, og der ikke er en eksisterende
+`core.sshCommand`, som skal bevares, kan SSH vælges lokalt for repositoryet:
+
+```bash
+git -c safe.directory="$SAFE" config --local core.sshCommand \
+  "ssh -i $HOME/.ssh/id_ed25519_clinv1 -o IdentitiesOnly=yes"
+
+git -c safe.directory="$SAFE" remote set-url origin \
+  git@github.com:bdlarsen/KGA_Splice.git
+
+git -c safe.directory="$SAFE" remote -v
+git -c safe.directory="$SAFE" push
+```
+
+Undersøg eksisterende SSH-konfiguration først, hvis kommandoen viser en
+værdi. `remote set-url` ændrer den eksisterende `origin`; kontrollér altid
+adressen før push. Fortsæt ikke ved fejl. Skift ikke til en anden Linux-bruger
+uden at kontrollere nøgle, hjemmemappe og adgang.
+
 ## 7. Hent ændringer fra GitHub
 
 Brug kun dette, hvis en anden godkendt ændring faktisk skal ind på hosten.
